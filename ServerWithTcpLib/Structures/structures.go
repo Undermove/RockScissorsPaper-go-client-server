@@ -7,12 +7,13 @@ import (
 // Room with players
 type Room struct {
 	Name    string
-	Players [2]*Player
+	Players []*Player
 }
 
 func NewRoom(name string, player *Player) *Room {
-	var players [2]*Player
+	players := make([]*Player, 2)
 	players[0] = player
+	players[1] = NewPlayer("")
 
 	room := &Room{
 		Name:    name,

@@ -53,7 +53,7 @@ func main() {
 			} else if command == "newroom" {
 				registerRoom(rooms, detachedMessage[2], players[detachedMessage[0]])
 			} else if command == "enter" {
-
+				enterRoom(rooms, players[detachedMessage[0]].Name, detachedMessage[2], players)
 			}
 		}
 
@@ -99,6 +99,6 @@ func registerRoom(rooms map[string]*structures.Room, name string, player *struct
 	rooms[name] = structures.NewRoom(name, player)
 }
 
-func enterRoom(rooms map[string]*structures.Room, name string, players map[string]*structures.Player) {
-	rooms[name].Players[1] = players[name]
+func enterRoom(rooms map[string]*structures.Room, playername string, roomname string, players map[string]*structures.Player) {
+	rooms[roomname].Players[1] = players[playername]
 }
