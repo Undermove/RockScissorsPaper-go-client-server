@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net"
 	"strconv"
 	"strings"
 
@@ -10,102 +9,89 @@ import (
 	"github.com/firstrow/tcp_server"
 )
 
-var winMap = map[string]string{
+var loosersMap = map[string]string{
 	"Rock":     "Scissors",
 	"Paper":    "Rock",
 	"Scissors": "Paper",
 }
 
+var connections = map[*tcp_server.Client]string{}
 var authConnections = map[string]*tcp_server.Client{}
+var rooms = map[string]*structures.Room{}
+var players = map[string]*structures.Player{}
 
 func main() {
 	unknownCounter := 0
-	var connections = map[net.Addr]*string{}
-	var players = map[string]*structures.Player{}
-	var rooms = map[string]*structures.Room{}
 
 	server := tcp_server.New("localhost:9999")
 
 	server.OnNewClient(func(c *tcp_server.Client) {
-
-		var connectionAddress = c.Conn().RemoteAddr()
-
-		if _, ok := connections[connectionAddress]; ok {
-			delete(connections, connectionAddress)
-		}
-
 		unknownCounter++
 		unknownUser := "unknown#" + strconv.Itoa(unknownCounter)
-		connections[connectionAddress] = &unknownUser
+		connections[c] = unknownUser
 	})
 
 	server.OnNewMessage(func(c *tcp_server.Client, message string) {
 		var detachedMessage = strings.Split(message, ";")
 
-		currentUserName := detachedMessage[0]
+		userName := detachedMessage[0]
 		command := detachedMessage[1]
+		argument := detachedMessage[2]
 
-		if currentUserName == "unknownUser" {
-			if command == "reg" {
-				if registerUser(detachedMessage[2], c.Conn().RemoteAddr(), players, connections) == false {
-					c.Send("User with such name already registred.")
-					return
-				}
-				authConnections[detachedMessage[2]] = c
-				c.Send("registred")
-				c.Send("Congradulations! You have been registred. Your next command:\n1. rooms - watch all rooms\n2. newroom;name - create new room with name\n3. enter;name - create new room with name")
-			} else {
-				c.Send("Can't listen commands from unknown user")
-			}
-		} else if _, ok := players[currentUserName]; ok {
+		if player, ok := tryGetUser(userName); ok {
 			if command == "rooms" {
-				getAllRoomsNames(rooms, c)
+				getAllRoomsNames(c)
 			} else if command == "newroom" {
-				registerRoom(rooms, detachedMessage[2], players[currentUserName])
+				registerRoom(argument, player)
 			} else if command == "enter" {
-				isEntered := enterRoom(rooms, players[currentUserName].Name, detachedMessage[2], players)
-				if isEntered == true {
-					c.Send("Game started\nAvaliable commands: \n1. turn;yourChoise - example turn;scissors\n2. leave - Leave room")
-				} else {
-					c.Send("Room not found")
-				}
+				enterRoom(player.Name, argument)
 			}
 
-			if rooms[players[currentUserName].CurrentRoomName] != nil {
+			if rooms[player.CurrentRoomName] != nil {
 				if command == "leave" {
-					leaveRoom(rooms, currentUserName, players)
+					leaveRoom(userName)
 				} else if command == "turn" {
-					turn(rooms, currentUserName, players, detachedMessage[2], connections)
+					turn(userName, argument)
 				}
+			}
+		} else {
+			if command == "reg" {
+				registerUser(argument, c)
+			} else {
+				c.Send("Can't listen commands from unknown user. Register first")
 			}
 		}
 	})
 
 	server.OnClientConnectionClosed(func(c *tcp_server.Client, err error) {
-		connectionAddress := c.Conn().RemoteAddr()
-		username := *connections[connectionAddress]
+		username := connections[c]
+		leaveRoom(username)
 		delete(players, username)
-		delete(connections, connectionAddress)
+		delete(authConnections, username)
+		delete(connections, c)
+
 		log.Println("Disconnected")
 	})
 
 	server.Listen()
 }
 
-func registerUser(username string,
-	address net.Addr,
-	players map[string]*structures.Player,
-	connections map[net.Addr]*string) bool {
-	if _, ok := players[username]; ok {
-		return false
+func registerUser(username string, c *tcp_server.Client) {
+	if _, ok := tryGetUser(username); ok {
+		c.Send("User with such name already registred.")
+		return
 	}
 
 	players[username] = structures.NewPlayer(username)
-	connections[address] = &username
-	return true
+	authConnections[username] = c
+	connections[c] = username
+	c.Send("registred")
+	c.Send("Congradulations! You have been registred. Your next command:\n   rooms - watch all rooms\n   newroom;name - create new room with name\n   enter;name - create new room with name")
+	return
 }
 
-func getAllRoomsNames(rooms map[string]*structures.Room, c *tcp_server.Client) {
+func getAllRoomsNames(c *tcp_server.Client) {
+	result := "Rooms:\n"
 	for _, value := range rooms {
 		playerinfo := " |players: "
 		for i := 0; i < 2; i++ {
@@ -113,29 +99,48 @@ func getAllRoomsNames(rooms map[string]*structures.Room, c *tcp_server.Client) {
 				playerinfo = playerinfo + value.Players[i].Name + " "
 			}
 		}
-		c.Send(value.Name + playerinfo)
+		result = result + value.Name + playerinfo
 	}
+
+	c.Send(result)
 }
 
-func registerRoom(rooms map[string]*structures.Room, name string, player *structures.Player) {
+func registerRoom(name string, player *structures.Player) {
 	rooms[name] = structures.NewRoom(name, player)
+	authConnections[player.Name].Send("Room registred")
 }
 
-func enterRoom(rooms map[string]*structures.Room, playername string, roomname string, players map[string]*structures.Player) bool {
+func enterRoom(playername string, roomname string) {
+	conn := authConnections[playername]
+
 	if _, ok := rooms[roomname]; ok {
+		if players[playername].CurrentRoomName == roomname {
+			conn.Send("You are already in this room")
+		}
+
+		if len(rooms[roomname].Players) >= 2 {
+			conn.Send("Room is full")
+		}
+
 		rooms[roomname].Players[1] = players[playername]
 		players[playername].CurrentRoomName = roomname
-		return true
+		conn.Send("Game started\nAvaliable commands: \n   turn;yourChoise - example turn;scissors\n   leave - Leave room")
+		return
 	}
 
-	return false
+	conn.Send("Room not found")
 }
 
-func leaveRoom(rooms map[string]*structures.Room, playername string, players map[string]*structures.Player) bool {
-	for i := 0; i < 2; i++ {
+func leaveRoom(playername string) bool {
+	if players[playername].CurrentRoomName == "" {
+		return false
+	}
 
-		if rooms[players[playername].CurrentRoomName].Players[i].Name == playername {
+	for i := 0; i < 2; i++ {
+		currentPlayer := rooms[players[playername].CurrentRoomName].Players[i]
+		if currentPlayer.Name == playername {
 			rooms[players[playername].CurrentRoomName].Players[i] = structures.NewPlayer("")
+			authConnections[playername].Send("Room left")
 			return true
 		}
 	}
@@ -143,11 +148,7 @@ func leaveRoom(rooms map[string]*structures.Room, playername string, players map
 	return false
 }
 
-func turn(rooms map[string]*structures.Room,
-	playername string,
-	players map[string]*structures.Player,
-	playerChoise string,
-	connections map[net.Addr]*string) {
+func turn(playername string, playerChoise string) {
 	player := players[playername]
 	player.SetPlayerChoise(playerChoise)
 
@@ -162,7 +163,7 @@ func turn(rooms map[string]*structures.Room,
 
 	if room.Players[0].PlayerChoise == room.Players[1].PlayerChoise {
 		result = "DRAW"
-	} else if winMap[room.Players[0].PlayerChoise] == room.Players[1].PlayerChoise {
+	} else if loosersMap[room.Players[0].PlayerChoise] == room.Players[1].PlayerChoise {
 		result = room.Players[0].Name + " WINS!!!"
 	} else {
 		result = room.Players[1].Name + " WINS!!!"
@@ -171,4 +172,9 @@ func turn(rooms map[string]*structures.Room,
 	for _, currentPlayer := range room.Players {
 		authConnections[currentPlayer.Name].Send(result)
 	}
+}
+
+func tryGetUser(userName string) (*structures.Player, bool) {
+	player, ok := players[userName]
+	return player, ok
 }

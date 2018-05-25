@@ -51,7 +51,6 @@ func main() {
 
 	for {
 		var command string
-		fmt.Print("Enter command ")
 		fmt.Fscan(os.Stdin, &command)
 		conn.Write([]byte(player.login + ";" + command + ";\n"))
 	}
