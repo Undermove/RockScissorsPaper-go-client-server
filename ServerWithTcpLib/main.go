@@ -33,8 +33,7 @@ func main() {
 	})
 
 	server.OnNewMessage(func(c *tcp_server.Client, message string) {
-		var detachedMessage = strings.Split(message, ";")
-
+		detachedMessage := strings.Split(message, ";")
 		userName := detachedMessage[0]
 		command := detachedMessage[1]
 		argument := detachedMessage[2]
