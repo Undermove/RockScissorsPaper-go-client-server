@@ -15,6 +15,7 @@ func NewRoom(name string, player *Player) *Room {
 	players[0] = player
 	players[1] = NewPlayer("")
 
+	player.CurrentRoomName = name
 	room := &Room{
 		Name:    name,
 		Players: players,
@@ -25,10 +26,11 @@ func NewRoom(name string, player *Player) *Room {
 
 // Player contains information about user and his connection
 type Player struct {
-	Name         string
-	Address      net.Addr
-	Score        int
-	PlayerChoise string
+	Name            string
+	Address         net.Addr
+	Score           int
+	PlayerChoise    string
+	CurrentRoomName string
 }
 
 func (player *Player) SetPlayerChoise(choise string) {
