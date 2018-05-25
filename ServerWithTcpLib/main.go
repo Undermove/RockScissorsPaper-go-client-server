@@ -29,6 +29,7 @@ func main() {
 		unknownCounter++
 		unknownUser := "unknown#" + strconv.Itoa(unknownCounter)
 		connections[c] = unknownUser
+		log.Println(unknownUser + " connected")
 	})
 
 	server.OnNewMessage(func(c *tcp_server.Client, message string) {
@@ -70,13 +71,17 @@ func main() {
 		delete(authConnections, username)
 		delete(connections, c)
 
-		log.Println("Disconnected")
+		log.Println(username + " disconnected")
 	})
 
 	server.Listen()
 }
 
 func registerUser(username string, c *tcp_server.Client) {
+	if username == "" {
+		c.Send("Can't register user without name")
+	}
+
 	if _, ok := tryGetUser(username); ok {
 		c.Send("User with such name already registred.")
 		return
@@ -87,6 +92,7 @@ func registerUser(username string, c *tcp_server.Client) {
 	connections[c] = username
 	c.Send("registred")
 	c.Send("Congradulations! You have been registred. Your next command:\n   rooms - watch all rooms\n   newroom;name - create new room with name\n   enter;name - create new room with name")
+	log.Println(username + " Logged In")
 	return
 }
 
@@ -102,16 +108,25 @@ func getAllRoomsNames(c *tcp_server.Client) {
 		result = result + value.Name + playerinfo
 	}
 
+	log.Println("Handle all rooms request from " + connections[c])
 	c.Send(result)
 }
 
 func registerRoom(name string, player *structures.Player) {
+	if player.CurrentRoomName != "" {
+		authConnections[player.Name].Send("You are already in room. Leave room and try again")
+		return
+	}
+
 	rooms[name] = structures.NewRoom(name, player)
-	authConnections[player.Name].Send("Room registred")
+	log.Println("Handle room register request from: " + player.Name)
+	authConnections[player.Name].Send("Room: " + name + " registred")
 }
 
 func enterRoom(playername string, roomname string) {
 	conn := authConnections[playername]
+
+	log.Println("User" + playername + " request room enter: " + roomname)
 
 	if _, ok := rooms[roomname]; ok {
 		if players[playername].CurrentRoomName == roomname {
@@ -122,9 +137,17 @@ func enterRoom(playername string, roomname string) {
 			conn.Send("Room is full")
 		}
 
-		rooms[roomname].Players[1] = players[playername]
+		for i := 0; i < 2; i++ {
+			if rooms[roomname].Players[i].Name == "" {
+				rooms[roomname].Players[i] = players[playername]
+				continue
+			}
+			authConnections[rooms[roomname].Players[i].Name].Send(playername + " entered the room")
+		}
+
 		players[playername].CurrentRoomName = roomname
 		conn.Send("Game started\nAvaliable commands: \n   turn;yourChoise - example turn;scissors\n   leave - Leave room")
+		log.Println("User" + playername + " entered to room: " + roomname)
 		return
 	}
 
@@ -138,9 +161,11 @@ func leaveRoom(playername string) bool {
 
 	for i := 0; i < 2; i++ {
 		currentPlayer := rooms[players[playername].CurrentRoomName].Players[i]
+		authConnections[currentPlayer.Name].Send(playername + " left this room")
 		if currentPlayer.Name == playername {
 			rooms[players[playername].CurrentRoomName].Players[i] = structures.NewPlayer("")
-			authConnections[playername].Send("Room left")
+			players[playername].CurrentRoomName = ""
+			log.Println("User " + playername + " left room: " + players[playername].CurrentRoomName)
 			return true
 		}
 	}
