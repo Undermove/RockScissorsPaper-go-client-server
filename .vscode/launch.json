@@ -17,6 +17,22 @@
             "env": {},
             "args": [],
             "showLog": true
+        },
+        {
+            "name": "Attach",
+            "type": "chrome",
+            "request": "attach",
+            "port": 8000,
+            "url": "http://localhost:8000/",
+            "webRoot": "${workspaceFolder}/public"
+        },
+        {
+            "name": "Attach to url with files served from ./out",
+            "type": "chrome",
+            "request": "attach",
+            "port": 9222,
+            "url": "<url of the open browser tab to connect to>",
+            "webRoot": "${workspaceFolder}"
         }
     ]
 }
