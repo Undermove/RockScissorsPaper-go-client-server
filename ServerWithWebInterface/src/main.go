@@ -30,6 +30,9 @@ func main() {
 	fs := http.FileServer(http.Dir("../public"))
 	http.Handle("/", fs)
 
+	fs2 := http.FileServer(http.Dir("../public2"))
+	http.HandleFunc("/2/", fs2.ServeHTTP)
+
 	// Configure websocket route
 	http.HandleFunc("/ws", handleConnections)
 

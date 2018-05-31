@@ -30,17 +30,14 @@
         <div class="col s4">
             <a class="collection-header"><h4>Rooms List</h4></a>
             <ul id = "rooms-list" class="collection" v-html="rooms">
-                    <li class="collection-item"><div>Room first<a href="#!" class="secondary-content"><i class="material-icons">meeting_room</i></a></div></li>
-                    <li class="collection-item"><div>Second Room<a href="#!" class="secondary-content"><i class="material-icons">meeting_room</i></a></div></li>
-                    <li class="collection-item"><div>Room three<a href="#!" class="secondary-content"><i class="material-icons">meeting_room</i></a></div></li>
             </ul>
         </div>
         <form class="col s4">
             <a class="collection-header"><h4>Create new room</h4></a>
             <div class="input-field col s12">
-                <input placeholder="Room name" id="first_name" type="text" class="validate">
+                <input placeholder="Room name" v-model="newRoom" id="first_name" type="text" class="validate">
                 <label for="first_name">Room Name:</label>
-                <button class="waves-effect waves-light btn" @click="createRoom()">
+                <button class="waves-effect waves-light btn" @click="createRoom">
                         <i class="material-icons right">done</i>
                         Create
                 </button>
