@@ -27,7 +27,8 @@ new Vue({
                 element.scrollTop = element.scrollHeight;
             } else if(msg.type == 'createRoom'){
                 var msg = JSON.parse(e.data);
-                self.rooms += '<li class="collection-item"><div>'+msg.message+'<a href="#!" class="secondary-content"><i class="material-icons">meeting_room</i></a></div></li>'
+                //self.rooms += '<div class="chip">'+ 'Hello'+'</div>'
+                self.rooms += '<li class="collection-item"><div>'+msg.message+'<a href="room" class="secondary-content"><i class="material-icons">meeting_room</i></a></div></li>'
     
                 var element = document.getElementById('rooms-list');
                 element.scrollTop = element.scrollHeight; // Auto scroll to the bottom
@@ -51,6 +52,10 @@ new Vue({
         },
 
         createRoom: function () {
+            if (!this.newRoom) {
+                Materialize.toast('You must enter room name', 2000);
+                return
+            }
             if (this.newRoom != '') {
                 this.ws.send(
                     JSON.stringify({
@@ -71,10 +76,6 @@ new Vue({
             }
             if (!this.username) {
                 Materialize.toast('You must choose a username', 2000);
-                return
-            }
-            if (!this.newRoom) {
-                Materialize.toast('You must enter room name', 2000);
                 return
             }
             this.email = $('<p>').html(this.email).text();

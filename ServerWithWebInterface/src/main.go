@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -25,23 +27,42 @@ type Message struct {
 	Message  string `json:"message"`
 }
 
+func provideScriptFile(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "../public/app.js")
+}
+
+func provideStyleFile(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "../public/style.css")
+}
+
+func provideMainPage(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "../public/index.html")
+}
+
+func provideRoomPage(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "../room/index.html")
+}
+
 func main() {
 	// Create a simple file server
-	fs := http.FileServer(http.Dir("../public"))
-	http.Handle("/", fs)
+	r := mux.NewRouter()
 
-	fs2 := http.FileServer(http.Dir("../public2"))
-	http.HandleFunc("/2/", fs2.ServeHTTP)
+	fs := http.FileServer(http.Dir("../public"))
+	fs2 := http.FileServer(http.Dir("../room"))
+	r.Handle("/", http.StripPrefix("/", fs))
+	r.Handle("/room", http.StripPrefix("/room", fs2))
+	r.HandleFunc("/app.js", provideScriptFile).Methods("GET")
+	r.HandleFunc("/style.css", provideStyleFile).Methods("GET")
 
 	// Configure websocket route
-	http.HandleFunc("/ws", handleConnections)
+	r.HandleFunc("/ws", handleConnections)
 
 	// Start listening for incoming chat messages
 	go handleMessages()
 
 	// Start the server on localhost port 8000 and log any errors
 	log.Println("http server started on :8000")
-	err := http.ListenAndServe(":8000", nil)
+	err := http.ListenAndServe(":8000", r)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}

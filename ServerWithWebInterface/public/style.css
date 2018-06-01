@@ -10,16 +10,20 @@ main {
 
 #chat-messages {
     min-height: 10vh;
-    height: 60vh;
+    height: 50vh;
     width: 100%;
     overflow-y: scroll;
 }
 
 #rooms-list {
     min-height: 10vh;
-    height: 54vh;
+    height: 50vh;
     width: 100%;
     overflow-y: scroll;
+}
+
+#send-button{
+    min-width: 10vh;
 }
 
 .collection {
