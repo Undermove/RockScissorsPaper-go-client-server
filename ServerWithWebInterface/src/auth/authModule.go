@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"encoding/json"
+
 	"../data"
 	"github.com/gorilla/websocket"
 )
@@ -51,4 +53,35 @@ func (a *AuthModule) Authenticate(w *websocket.Conn, m msg.AuthRequest) bool {
 	a.Clients[w] = m.Username
 
 	return true
+}
+
+func (a *AuthModule) SendSuccessResponse(w *websocket.Conn) {
+	response := msg.AuthResponse{
+		IsRegistred: true,
+	}
+
+	data, _ := json.Marshal(response)
+
+	message := msg.Message{
+		Type: "AuthResponse",
+		Raw:  data,
+	}
+
+	w.WriteJSON(message)
+}
+
+func (a *AuthModule) SendRejectResponse(w *websocket.Conn) {
+	response := msg.AuthResponse{
+		IsRegistred:  false,
+		RejectReason: "Username already used!",
+	}
+
+	data, _ := json.Marshal(response)
+
+	message := msg.Message{
+		Type: "AuthResponse",
+		Raw:  data,
+	}
+
+	w.WriteJSON(message)
 }

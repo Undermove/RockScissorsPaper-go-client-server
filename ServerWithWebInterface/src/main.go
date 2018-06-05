@@ -115,40 +115,21 @@ func handleMessages() {
 			}
 		} else {
 			if wsMsg.Message.Type == "AuthRequest" {
-				var request msg.AuthRequest
-				err := json.Unmarshal(wsMsg.Message.Raw, &request)
-				if err != nil {
-					return
-				}
-				if authModule.Authenticate(wsMsg.fromWs, request) {
-					response := msg.AuthResponse{
-						IsRegistred: true,
-					}
-
-					data, _ := json.Marshal(response)
-
-					message := msg.Message{
-						Type: "AuthResponse",
-						Raw:  data,
-					}
-
-					wsMsg.fromWs.WriteJSON(message)
-				} else {
-					response := msg.AuthResponse{
-						IsRegistred:  false,
-						RejectReason: "Username already used!",
-					}
-
-					data, _ := json.Marshal(response)
-
-					message := msg.Message{
-						Type: "AuthResponse",
-						Raw:  data,
-					}
-
-					wsMsg.fromWs.WriteJSON(message)
-				}
+				processAuthRequest(wsMsg)
 			}
 		}
+	}
+}
+
+func processAuthRequest(wsMsg WebSocketMessage) {
+	var request msg.AuthRequest
+	err := json.Unmarshal(wsMsg.Message.Raw, &request)
+	if err != nil {
+		return
+	}
+	if authModule.Authenticate(wsMsg.fromWs, request) {
+		authModule.SendSuccessResponse(wsMsg.fromWs)
+	} else {
+		authModule.SendRejectResponse(wsMsg.fromWs)
 	}
 }
