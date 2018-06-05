@@ -1,16 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
+
+	"./auth"
+	"./data"
 
 	"github.com/gorilla/mux"
 
 	"github.com/gorilla/websocket"
 )
 
-var clients = make(map[*websocket.Conn]bool) // connected clients
-var broadcast = make(chan Message)           // broadcast channel
+var authModule *auth.AuthModule             // handle clients connections
+var broadcast = make(chan WebSocketMessage) // broadcast channel
 
 // Configure the upgrader
 var upgrader = websocket.Upgrader{
@@ -19,12 +23,9 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// Define our message object
-type Message struct {
-	Type     string `json:"type"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Message  string `json:"message"`
+type WebSocketMessage struct {
+	Message msg.Message
+	fromWs  *websocket.Conn
 }
 
 func provideScriptFile(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +45,8 @@ func provideRoomPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	authModule = auth.NewModule()
+
 	// Create a simple file server
 	r := mux.NewRouter()
 
@@ -78,33 +81,73 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	defer ws.Close()
 
 	// Register our new client
-	clients[ws] = true
+	authModule.AddConnection(ws)
 
 	for {
-		var msg Message
+		var msg msg.Message
 		// Read in a new message as JSON and map it to a Message object
 		err := ws.ReadJSON(&msg)
 		if err != nil {
 			log.Printf("error: %v", err)
-			delete(clients, ws)
+			authModule.Disconnect(ws)
 			break
 		}
 		// Send the newly received message to the broadcast channel
-		broadcast <- msg
+		wsMsg := WebSocketMessage{fromWs: ws, Message: msg}
+		broadcast <- wsMsg
 	}
 }
 
 func handleMessages() {
 	for {
 		// Grab the next message from the broadcast channel
-		msg := <-broadcast
-		// Send it out to every client that is currently connected
-		for client := range clients {
-			err := client.WriteJSON(msg)
+		wsMsg := <-broadcast
+
+		if authModule.IsLoggedIn(wsMsg.fromWs) {
+
+			// здесь будут расположены какие-то действия в ответ на сообщения, приходящие из сокета
+			err := wsMsg.fromWs.WriteJSON(wsMsg.Message)
+
 			if err != nil {
 				log.Printf("error: %v", err)
-				client.Close()
-				delete(clients, client)
+				wsMsg.fromWs.Close()
+				authModule.Disconnect(wsMsg.fromWs)
+			}
+		} else {
+			if wsMsg.Message.Type == "AuthRequest" {
+				var request msg.AuthRequest
+				err := json.Unmarshal(wsMsg.Message.Raw, &request)
+				if err != nil {
+					return
+				}
+				if authModule.Authenticate(wsMsg.fromWs, request) {
+					response := msg.AuthResponse{
+						IsRegistred: true,
+					}
+
+					data, _ := json.Marshal(response)
+
+					message := msg.Message{
+						Type: "AuthResponse",
+						Raw:  data,
+					}
+
+					wsMsg.fromWs.WriteJSON(message)
+				} else {
+					response := msg.AuthResponse{
+						IsRegistred:  false,
+						RejectReason: "Username already used!",
+					}
+
+					data, _ := json.Marshal(response)
+
+					message := msg.Message{
+						Type: "AuthResponse",
+						Raw:  data,
+					}
+
+					wsMsg.fromWs.WriteJSON(message)
+				}
 			}
 		}
 	}
