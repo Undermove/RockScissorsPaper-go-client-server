@@ -66,17 +66,17 @@ new Vue({
                 Materialize.toast('You must enter room name', 2000);
                 return
             }
-            if (this.newRoom != '') {
-                this.ws.send(
-                    JSON.stringify({
-                        type: 'createRoom',
-                        email: this.email,
-                        username: this.username,
-                        message:$('<p>').html(this.newRoom).text()
-                    }
-                ));
-                this.newRoom = ''; // Reset newMsg
+            
+            var createRequest = {
+                roomName: this.newRoom
             }
+            
+            var wrappedCreateRequest = {
+                type: "CreateRoomRequest",
+                raw: createRequest
+            }
+
+            this.ws.send(JSON.stringify(wrappedCreateRequest));
         },
 
         join: function () {

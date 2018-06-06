@@ -23,11 +23,11 @@ type AuthResponse struct {
 
 // Define our message object
 type CreateRoomRequest struct {
-	RoomName string `json:"rejectReason"`
+	RoomName string `json:"roomname"`
 }
 
 // Define our message object
 type CreateRoomResponse struct {
-	IsCreated    bool   `json:"isRegistred"`
+	IsCreated    bool   `json:"isCreated"`
 	RejectReason string `json:"rejectReason"`
 }

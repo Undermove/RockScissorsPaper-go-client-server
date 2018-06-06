@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var roomsManager *auth.RoomsManager
 var authModule *auth.AuthModule             // handle clients connections
 var broadcast = make(chan WebSocketMessage) // broadcast channel
 
@@ -46,6 +47,7 @@ func provideRoomPage(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	authModule = auth.NewModule()
+	roomsManager = auth.NewRoomsManager(authModule)
 
 	// Create a simple file server
 	r := mux.NewRouter()
@@ -104,14 +106,8 @@ func handleMessages() {
 		wsMsg := <-broadcast
 
 		if authModule.IsLoggedIn(wsMsg.fromWs) {
-
-			// здесь будут расположены какие-то действия в ответ на сообщения, приходящие из сокета
-			err := wsMsg.fromWs.WriteJSON(wsMsg.Message)
-
-			if err != nil {
-				log.Printf("error: %v", err)
-				wsMsg.fromWs.Close()
-				authModule.Disconnect(wsMsg.fromWs)
+			if wsMsg.Message.Type == "CreateRoomRequest" {
+				processCreateRoomRequest(wsMsg)
 			}
 		} else {
 			if wsMsg.Message.Type == "AuthRequest" {
@@ -132,4 +128,14 @@ func processAuthRequest(wsMsg WebSocketMessage) {
 	} else {
 		authModule.SendRejectResponse(wsMsg.fromWs)
 	}
+}
+
+func processCreateRoomRequest(wsMsg WebSocketMessage) {
+	var request msg.CreateRoomRequest
+
+	err := json.Unmarshal(wsMsg.Message.Raw, &request)
+	if err != nil {
+		return
+	}
+	roomsManager.AddRoom(request.RoomName)
 }
