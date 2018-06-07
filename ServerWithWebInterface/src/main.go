@@ -138,4 +138,6 @@ func processCreateRoomRequest(wsMsg WebSocketMessage) {
 		return
 	}
 	roomsManager.AddRoom(request.RoomName)
+
+	roomsManager.SendResponse(true, wsMsg.fromWs)
 }

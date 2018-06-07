@@ -1,6 +1,11 @@
 package auth
 
-import "github.com/gorilla/websocket"
+import (
+	"encoding/json"
+
+	"../data"
+	"github.com/gorilla/websocket"
+)
 
 type Player struct {
 	Name   string
@@ -50,6 +55,30 @@ func NewRoomsManager(auth *AuthModule) *RoomsManager {
 		ConnToRooms: make(map[*websocket.Conn]*Room),
 		AuthModule:  auth,
 	}
+}
+
+func (rm *RoomsManager) SendResponse(isSuccess bool, w *websocket.Conn) {
+	var response msg.CreateRoomResponse
+
+	if isSuccess {
+		response = msg.CreateRoomResponse{
+			IsCreated: true,
+		}
+	} else {
+		response = msg.CreateRoomResponse{
+			IsCreated:    false,
+			RejectReason: "Internal Error",
+		}
+	}
+
+	data, _ := json.Marshal(response)
+
+	message := msg.Message{
+		Type: "CreateRoomResponse",
+		Raw:  data,
+	}
+
+	w.WriteJSON(message)
 }
 
 func (rm *RoomsManager) AddRoom(roomName string) {
